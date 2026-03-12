@@ -120,6 +120,44 @@ function readActionYml(actionDir: string): ActionDefinition {
   throw new Error(`No action.yml or action.yaml found in ${actionDir}`);
 }
 
+function evaluateDefaultExpression(expr: string, env: NodeJS.ProcessEnv): string | null {
+  const match = String(expr).match(/^\$\{\{\s*(.*?)\s*\}\}$/);
+  if (!match) return null;
+  const body = match[1];
+
+  const contextMap: Record<string, string | undefined> = {
+    'github.token': env['GITHUB_TOKEN'],
+    'github.event_name': env['GITHUB_EVENT_NAME'],
+    'github.repository': env['GITHUB_REPOSITORY'],
+    'github.ref': env['GITHUB_REF'],
+    'github.sha': env['GITHUB_SHA'],
+    'github.actor': env['GITHUB_ACTOR'],
+    'github.workflow': env['GITHUB_WORKFLOW'],
+    'github.action_path': env['GITHUB_ACTION_PATH'],
+    'runner.os': env['RUNNER_OS'],
+    'runner.arch': env['RUNNER_ARCH'],
+    'runner.temp': env['RUNNER_TEMP'],
+    'runner.tool_cache': env['RUNNER_TOOL_CACHE'],
+  };
+
+  if (body in contextMap) {
+    return contextMap[body] ?? '';
+  }
+
+  const cmpMatch = body.match(/^(\S+)\s*==\s*'([^']*)'\s*$/);
+  if (cmpMatch) {
+    const [, contextKey, expected] = cmpMatch;
+    const allContexts: Record<string, string | undefined> = {
+      'runner.debug': env['RUNNER_DEBUG'],
+      ...contextMap,
+    };
+    const actual = allContexts[contextKey] ?? '';
+    return actual === expected ? 'true' : 'false';
+  }
+
+  return null;
+}
+
 function buildEnv(
   actionWith: Record<string, string>,
   actionDef: ActionDefinition,
@@ -130,8 +168,16 @@ function buildEnv(
   // action inputs의 기본값 적용
   if (actionDef.inputs) {
     for (const [key, config] of Object.entries(actionDef.inputs)) {
-      if (config.default !== undefined && config.default !== '' && !String(config.default).includes('${{')) {
-        env[`INPUT_${key.toUpperCase()}`] = String(config.default);
+      if (config.default !== undefined && config.default !== '') {
+        const strDefault = String(config.default);
+        if (strDefault.includes('${{')) {
+          const evaluated = evaluateDefaultExpression(strDefault, env);
+          if (evaluated !== null) {
+            env[`INPUT_${key.toUpperCase()}`] = evaluated;
+          }
+        } else {
+          env[`INPUT_${key.toUpperCase()}`] = strDefault;
+        }
       }
     }
   }
