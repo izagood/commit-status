@@ -41,7 +41,7 @@ inputs:
     required: false
     default: ''
   needs-result:
-    description: 'Dependent job result(s). Use ${{ needs.<job>.result }} or ${{ join(needs.*.result, ",") }}'
+    description: 'Dependent job result(s). Use needs.<job>.result or join(needs.*.result, ",")'
     required: false
     default: ''
 
