@@ -1,0 +1,27 @@
+{
+  "name": "commitstate",
+  "version": "1.0.0",
+  "description": "Commit status lifecycle (pending→success/failure) in a single GitHub Action call",
+  "private": true,
+  "scripts": {
+    "build": "esbuild src/pre.ts src/main.ts src/post.ts --bundle --platform=node --target=node20 --outdir=dist"
+  },
+  "keywords": [
+    "github-actions",
+    "commit-status"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/izagood/commit-status.git"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.4.0",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.7.2"
+  }
+}
