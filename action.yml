@@ -1,0 +1,53 @@
+name: 'CommitState'
+description: 'Commit status lifecycle (pending→success/failure) in a single action call'
+author: 'izagood'
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+inputs:
+  token:
+    description: 'GitHub token (cross-repo requires PAT with repo:status scope)'
+    required: true
+  sha:
+    description: 'Commit SHA to set status on'
+    required: true
+  owner:
+    description: 'Target repository owner (default: current repository)'
+    required: false
+    default: ''
+  repo:
+    description: 'Target repository name (default: current repository)'
+    required: false
+    default: ''
+  context:
+    description: 'Status check label'
+    required: false
+    default: 'commitstate'
+  description-pending:
+    description: 'Description for pending status'
+    required: false
+    default: 'Build is running...'
+  description-success:
+    description: 'Description for success status'
+    required: false
+    default: 'Build succeeded'
+  description-failure:
+    description: 'Description for failure status'
+    required: false
+    default: 'Build failed'
+  target-url:
+    description: 'URL to link from the status (default: current workflow run)'
+    required: false
+    default: ''
+  needs-result:
+    description: 'Dependent job result(s). Use ${{ needs.<job>.result }} or ${{ join(needs.*.result, ",") }}'
+    required: false
+    default: ''
+
+runs:
+  using: 'node20'
+  pre: 'dist/pre.js'
+  main: 'dist/main.js'
+  post: 'dist/post.js'
+  post-if: 'always()'
