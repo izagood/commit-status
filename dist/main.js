@@ -31271,8 +31271,8 @@ function buildEnv(actionWith, actionDef, stepEnv) {
   const env = { ...process.env };
   if (actionDef.inputs) {
     for (const [key, config] of Object.entries(actionDef.inputs)) {
-      if (config.default !== void 0 && config.default !== "") {
-        env[`INPUT_${key.toUpperCase()}`] = config.default;
+      if (config.default !== void 0 && config.default !== "" && !String(config.default).includes("${{")) {
+        env[`INPUT_${key.toUpperCase()}`] = String(config.default);
       }
     }
   }
