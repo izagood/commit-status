@@ -131,14 +131,14 @@ function buildEnv(
   if (actionDef.inputs) {
     for (const [key, config] of Object.entries(actionDef.inputs)) {
       if (config.default !== undefined) {
-        env[`INPUT_${key.replace(/-/g, '_').toUpperCase()}`] = config.default;
+        env[`INPUT_${key.toUpperCase()}`] = config.default;
       }
     }
   }
 
   // 사용자 지정 inputs 적용 (기본값보다 우선)
   for (const [key, value] of Object.entries(actionWith)) {
-    env[`INPUT_${key.replace(/-/g, '_').toUpperCase()}`] = value;
+    env[`INPUT_${key.toUpperCase()}`] = value;
   }
 
   // step-level env 적용

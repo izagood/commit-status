@@ -31272,12 +31272,12 @@ function buildEnv(actionWith, actionDef, stepEnv) {
   if (actionDef.inputs) {
     for (const [key, config] of Object.entries(actionDef.inputs)) {
       if (config.default !== void 0) {
-        env[`INPUT_${key.replace(/-/g, "_").toUpperCase()}`] = config.default;
+        env[`INPUT_${key.toUpperCase()}`] = config.default;
       }
     }
   }
   for (const [key, value] of Object.entries(actionWith)) {
-    env[`INPUT_${key.replace(/-/g, "_").toUpperCase()}`] = value;
+    env[`INPUT_${key.toUpperCase()}`] = value;
   }
   if (stepEnv) {
     for (const [key, value] of Object.entries(stepEnv)) {
