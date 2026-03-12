@@ -130,7 +130,7 @@ function buildEnv(
   // action inputs의 기본값 적용
   if (actionDef.inputs) {
     for (const [key, config] of Object.entries(actionDef.inputs)) {
-      if (config.default !== undefined) {
+      if (config.default !== undefined && config.default !== '') {
         env[`INPUT_${key.toUpperCase()}`] = config.default;
       }
     }

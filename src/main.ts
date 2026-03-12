@@ -12,7 +12,7 @@ async function run(): Promise<void> {
   core.saveState('action_succeeded', result.succeeded ? 'true' : 'false');
 
   if (!result.succeeded) {
-    core.warning(`Wrapped action failed: ${result.error}`);
+    core.setFailed(`Wrapped action failed: ${result.error}`);
   }
 }
 
