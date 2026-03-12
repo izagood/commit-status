@@ -23886,17 +23886,27 @@ var github = __toESM(require_github());
 function getInputs() {
   const [defaultOwner, defaultRepo] = (process.env["GITHUB_REPOSITORY"] ?? "/").split("/");
   const targetUrl = core.getInput("target-url") || `${process.env["GITHUB_SERVER_URL"]}/${process.env["GITHUB_REPOSITORY"]}/actions/runs/${process.env["GITHUB_RUN_ID"]}`;
+  let actionWith = {};
+  const withInput = core.getInput("with");
+  if (withInput) {
+    try {
+      actionWith = JSON.parse(withInput);
+    } catch {
+      throw new Error(`Invalid JSON in 'with' input: ${withInput}`);
+    }
+  }
   return {
     token: core.getInput("token", { required: true }),
     sha: core.getInput("sha", { required: true }),
     owner: core.getInput("owner") || defaultOwner,
     repo: core.getInput("repo") || defaultRepo,
-    context: core.getInput("context") || "commitstate",
+    context: core.getInput("context") || "commit-status",
     descriptionPending: core.getInput("description-pending") || "Build is running...",
     descriptionSuccess: core.getInput("description-success") || "Build succeeded",
     descriptionFailure: core.getInput("description-failure") || "Build failed",
     targetUrl,
-    needsResult: core.getInput("needs-result")
+    action: core.getInput("action", { required: true }),
+    actionWith
   };
 }
 async function setCommitStatus(params) {
@@ -23919,20 +23929,10 @@ async function setCommitStatus(params) {
 async function run() {
   try {
     const inputs = getInputs();
-    let jobSucceeded;
-    if (inputs.needsResult) {
-      const results = inputs.needsResult.split(",").map((r) => r.trim());
-      jobSucceeded = results.every((r) => r === "success" || r === "skipped");
-      core2.info(`Determined status from needs-result: [${results.join(", ")}] \u2192 ${jobSucceeded ? "success" : "failure"}`);
-    } else if (process.env["COMMITSTATE_FAILURE"] === "true") {
-      jobSucceeded = false;
-      core2.info("Determined status from COMMITSTATE_FAILURE env: failure");
-    } else {
-      jobSucceeded = core2.getState("main_completed") === "true";
-      core2.info(`Determined status from main_completed state: ${jobSucceeded ? "success" : "failure"}`);
-    }
-    const state = jobSucceeded ? "success" : "failure";
-    const description = jobSucceeded ? inputs.descriptionSuccess : inputs.descriptionFailure;
+    const actionSucceeded = core2.getState("action_succeeded") === "true";
+    core2.info(`Wrapped action result: ${actionSucceeded ? "success" : "failure"}`);
+    const state = actionSucceeded ? "success" : "failure";
+    const description = actionSucceeded ? inputs.descriptionSuccess : inputs.descriptionFailure;
     await setCommitStatus({
       token: inputs.token,
       owner: inputs.owner,

@@ -1,35 +1,32 @@
-# CommitState
+# commit-status
 
-Commit status lifecycle (`pending` → `success`/`failure`) in a single GitHub Action call.
+Wrap any GitHub Action with automatic commit status lifecycle (`pending` → `success`/`failure`).
 
-Replace 3 boilerplate jobs (~50 lines) with 1 step (~10 lines).
+One step replaces manual pending/success/failure status management.
 
 ## How It Works
 
 ```
-pre.js  → Sets "pending" status immediately
-main.js → Saves state (no-op)
-post.js → Sets "success" or "failure" based on needs-result
-          (post-if: always() → runs even if job fails)
+pre.js  → Sets "pending" commit status
+main.js → Downloads and runs the wrapped action
+post.js → Sets "success" or "failure" based on action result
+          (post-if: always() → runs even if action fails)
 ```
 
 ## Quick Start
 
 ```yaml
-report_status:
-  runs-on: ubuntu-latest
-  needs: [build]
-  if: always()
-  steps:
-    - uses: izagood/commitstate@v1
-      with:
-        sha: ${{ github.event.client_payload.sha }}
-        token: ${{ secrets.GIT_PAT }}
-        owner: my-org
-        repo: my-repo
-        context: 'CI Status'
-        needs-result: ${{ needs.build.result }}
+steps:
+  - uses: izagood/commit-status@v1
+    with:
+      action: some-org/build-action@v1
+      with: '{"project": "my-app"}'
+      sha: ${{ github.event.client_payload.sha }}
+      token: ${{ secrets.GIT_PAT }}
+      context: 'CI Build'
 ```
+
+The commit status is automatically set to `pending` before the action runs, and `success` or `failure` after it completes.
 
 ## Inputs
 
@@ -37,156 +34,67 @@ report_status:
 |-------|----------|---------|-------------|
 | `token` | **Yes** | — | GitHub token. Cross-repo requires PAT with `repo:status` scope |
 | `sha` | **Yes** | — | Commit SHA to set status on |
+| `action` | **Yes** | — | GitHub Action to wrap (e.g. `actions/checkout@v4`) |
+| `with` | No | `'{}'` | JSON string of inputs to pass to the wrapped action |
 | `owner` | No | Current repo owner | Target repository owner |
 | `repo` | No | Current repo name | Target repository name |
-| `context` | No | `commitstate` | Status check label |
+| `context` | No | `commit-status` | Status check label |
 | `description-pending` | No | `Build is running...` | Description for pending status |
 | `description-success` | No | `Build succeeded` | Description for success status |
 | `description-failure` | No | `Build failed` | Description for failure status |
 | `target-url` | No | Current workflow run URL | URL linked from the status |
-| `needs-result` | No | — | Dependent job result(s) |
 
-## Usage Patterns
+## Usage Examples
 
-### Wrapper Job (Recommended)
-
-Use when your CI runs in a separate job (e.g., reusable workflow):
+### Basic: Wrap a build action
 
 ```yaml
-jobs:
-  ci:
-    uses: ./.github/workflows/reusable-ci.yml
-
-  report_status:
-    runs-on: ubuntu-latest
-    needs: [ci]
-    if: always()
-    steps:
-      - uses: izagood/commitstate@v1
-        with:
-          sha: ${{ github.event.client_payload.sha }}
-          token: ${{ secrets.GIT_PAT }}
-          owner: target-org
-          repo: target-repo
-          context: 'Cross-Repo CI'
-          needs-result: ${{ needs.ci.result }}
+steps:
+  - uses: izagood/commit-status@v1
+    with:
+      action: actions/github-script@v7
+      with: '{"script": "console.log(\"hello\")"}'
+      sha: ${{ github.sha }}
+      token: ${{ secrets.GITHUB_TOKEN }}
+      context: 'Build'
 ```
 
-### Multiple Dependencies
+### Cross-repo status
 
 ```yaml
-report_status:
-  runs-on: ubuntu-latest
-  needs: [lint, test, build]
-  if: always()
-  steps:
-    - uses: izagood/commitstate@v1
-      with:
-        sha: ${{ github.event.client_payload.sha }}
-        token: ${{ secrets.GIT_PAT }}
-        context: 'Full CI'
-        needs-result: ${{ join(needs.*.result, ',') }}
+steps:
+  - uses: izagood/commit-status@v1
+    with:
+      action: some-org/deploy-action@v2
+      with: '{"environment": "staging"}'
+      sha: ${{ github.event.client_payload.sha }}
+      token: ${{ secrets.GIT_PAT }}
+      owner: target-org
+      repo: target-repo
+      context: 'Deploy Staging'
 ```
 
-All dependent jobs must be `success` or `skipped` for the final status to be `success`. Any `failure` or `cancelled` results in `failure`.
-
-### Same Job (Escape Hatch)
-
-When running in the same job as your CI steps, use the `COMMITSTATE_FAILURE` env var:
+### Wrap a composite action
 
 ```yaml
-jobs:
-  ci:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: izagood/commitstate@v1
-        with:
-          sha: ${{ github.sha }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          context: 'CI'
-
-      - name: Run tests
-        run: npm test
-
-      # If a step fails, the post step uses main_completed state to detect failure
+steps:
+  - uses: izagood/commit-status@v1
+    with:
+      action: my-org/lint-action@main
+      sha: ${{ github.sha }}
+      token: ${{ secrets.GITHUB_TOKEN }}
+      context: 'Lint'
 ```
 
-To explicitly signal failure mid-job:
+## Supported Action Types
 
-```yaml
-      - name: Custom check
-        run: |
-          if ! check_something; then
-            echo "COMMITSTATE_FAILURE=true" >> $GITHUB_ENV
-          fi
-```
+| Type | Supported | Notes |
+|------|-----------|-------|
+| Node.js (`node12`, `node16`, `node20`, `node24`) | Yes | Runs the `main` entry point |
+| Composite (`composite`) | Yes | Runs shell `run` steps |
+| Docker | No | Not yet supported |
 
-## Status Determination Logic
-
-The post step determines the final status using this priority:
-
-1. **`needs-result` input** — Parses comma-separated job results. All must be `success` or `skipped` for success.
-2. **`COMMITSTATE_FAILURE` env var** — If set to `true`, reports failure.
-3. **`main_completed` state** — If main step ran successfully, reports success; otherwise failure.
-
-## Before / After
-
-### Before (~50 lines, 3 jobs)
-
-```yaml
-set_pending:
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/github-script@v7
-      with:
-        script: |
-          await github.rest.repos.createCommitStatus({
-            owner: 'org', repo: 'repo',
-            sha: context.payload.client_payload.sha,
-            state: 'pending', context: 'CI',
-            description: 'Build is running...'
-          })
-
-run_ci:
-  needs: [set_pending]
-  uses: ./.github/workflows/ci.yml
-
-report_success:
-  needs: [run_ci]
-  if: success()
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/github-script@v7
-      with:
-        script: # ... 10 lines
-
-report_failure:
-  needs: [run_ci]
-  if: failure()
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/github-script@v7
-      with:
-        script: # ... 10 lines
-```
-
-### After (~10 lines, 1 job)
-
-```yaml
-report_status:
-  runs-on: ubuntu-latest
-  needs: [run_ci]
-  if: always()
-  steps:
-    - uses: izagood/commitstate@v1
-      with:
-        sha: ${{ github.event.client_payload.sha }}
-        token: ${{ secrets.GIT_PAT }}
-        owner: org
-        repo: repo
-        context: 'CI'
-        needs-result: ${{ needs.run_ci.result }}
-```
+> **Note**: Nested `uses` inside composite actions are not supported and will be skipped with a warning.
 
 ## Token Permissions
 

@@ -33,13 +33,13 @@ jobs:
   self-test:
     runs-on: ubuntu-latest
     needs: [build]
-    if: always()
     steps:
       - uses: actions/checkout@v6
 
       - uses: ./
         with:
+          action: actions/github-script@v7
+          with: '{"script": "core.info(\"commit-status self-test: wrapped action executed successfully\")"}'
           sha: ${{ github.event.pull_request.head.sha || github.sha }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          context: 'CommitState Self-Test'
-          needs-result: ${{ needs.build.result }}
+          context: 'commit-status Self-Test'

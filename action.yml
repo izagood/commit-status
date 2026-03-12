@@ -1,5 +1,5 @@
-name: 'CommitState'
-description: 'Commit status lifecycle (pending→success/failure) in a single action call'
+name: 'commit-status'
+description: 'Wrap any GitHub Action with automatic commit status lifecycle (pending→success/failure)'
 author: 'izagood'
 branding:
   icon: 'check-circle'
@@ -12,6 +12,13 @@ inputs:
   sha:
     description: 'Commit SHA to set status on'
     required: true
+  action:
+    description: 'GitHub Action to wrap (e.g. actions/checkout@v4, owner/repo/path@ref)'
+    required: true
+  with:
+    description: 'JSON string of inputs to pass to the wrapped action'
+    required: false
+    default: '{}'
   owner:
     description: 'Target repository owner (default: current repository)'
     required: false
@@ -23,7 +30,7 @@ inputs:
   context:
     description: 'Status check label'
     required: false
-    default: 'commitstate'
+    default: 'commit-status'
   description-pending:
     description: 'Description for pending status'
     required: false
@@ -38,10 +45,6 @@ inputs:
     default: 'Build failed'
   target-url:
     description: 'URL to link from the status (default: current workflow run)'
-    required: false
-    default: ''
-  needs-result:
-    description: 'Dependent job result(s). Use needs.<job>.result or join(needs.*.result, ",")'
     required: false
     default: ''
 

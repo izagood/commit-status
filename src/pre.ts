@@ -5,6 +5,8 @@ async function run(): Promise<void> {
   try {
     const inputs = getInputs();
 
+    core.info(`Setting pending status, will wrap action: ${inputs.action}`);
+
     await setCommitStatus({
       token: inputs.token,
       owner: inputs.owner,

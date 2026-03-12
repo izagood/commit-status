@@ -13,7 +13,8 @@ export interface StatusInputs {
   descriptionSuccess: string;
   descriptionFailure: string;
   targetUrl: string;
-  needsResult: string;
+  action: string;
+  actionWith: Record<string, string>;
 }
 
 export function getInputs(): StatusInputs {
@@ -25,17 +26,28 @@ export function getInputs(): StatusInputs {
     core.getInput('target-url') ||
     `${process.env['GITHUB_SERVER_URL']}/${process.env['GITHUB_REPOSITORY']}/actions/runs/${process.env['GITHUB_RUN_ID']}`;
 
+  let actionWith: Record<string, string> = {};
+  const withInput = core.getInput('with');
+  if (withInput) {
+    try {
+      actionWith = JSON.parse(withInput);
+    } catch {
+      throw new Error(`Invalid JSON in 'with' input: ${withInput}`);
+    }
+  }
+
   return {
     token: core.getInput('token', { required: true }),
     sha: core.getInput('sha', { required: true }),
     owner: core.getInput('owner') || defaultOwner,
     repo: core.getInput('repo') || defaultRepo,
-    context: core.getInput('context') || 'commitstate',
+    context: core.getInput('context') || 'commit-status',
     descriptionPending: core.getInput('description-pending') || 'Build is running...',
     descriptionSuccess: core.getInput('description-success') || 'Build succeeded',
     descriptionFailure: core.getInput('description-failure') || 'Build failed',
     targetUrl,
-    needsResult: core.getInput('needs-result'),
+    action: core.getInput('action', { required: true }),
+    actionWith,
   };
 }
 
